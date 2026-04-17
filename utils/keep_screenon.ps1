@@ -1,0 +1,1 @@
+$sig='[DllImport("kernel32.dll")]public static extern uint SetThreadExecutionState(uint uFlags);';$t=Add-Type -MemberDefinition $sig -Name SleepPrevent -Namespace Utils -PassThru;$t::SetThreadExecutionState(2147483651);Read-Host '阻止休眠中… 按 Enter 恢复';$t::SetThreadExecutionState(2147483648)
