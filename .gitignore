@@ -208,3 +208,7 @@ __marimo__/
 
 # 自定义
 my_dataset*
+cache
+cache/*
+flow.dio
+src/flow/warp_loader.py
