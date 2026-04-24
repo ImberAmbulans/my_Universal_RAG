@@ -22,12 +22,14 @@ except ValueError:
 print(TASK_NAME)
 
 config = CacheConfig(root_dir,TASK_NAME)
-mgr = CacheManager(config=config)
+# mgr = CacheManager(config=config)
 
 
-def cache_check(results:list[tuple[str,str]],sources:list[tuple[str,str]]):
+def cache_check(results:list[tuple[str,str]],sources:list[tuple[str,str]],mgr:CacheManager=None):
+    if mgr is None:
+        default_config = CacheConfig(root_dir=Path.cwd(), task_name="default")
+        mgr = CacheManager(default_config)
     def decorater(func):
-        global mgr
         def wrapper():
             if all(mgr.exists(name,ext) for name,ext in results):
                 return None
@@ -48,7 +50,7 @@ def cache_check(results:list[tuple[str,str]],sources:list[tuple[str,str]]):
         results=[('all_chunks','pkl')],
         sources=[]
     )
-def split_chunks():
+def chunking():
     corpus_df = pd.read_parquet(TARGET_FILE)
     # 文档分块
     import sys
@@ -101,7 +103,7 @@ import numpy as np
             ('embeddings','npy')
         ]
 )
-def make_index(**kwargs):
+def indexing(**kwargs):
     embeddings = kwargs['embeddings']
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension) 
@@ -110,6 +112,6 @@ def make_index(**kwargs):
 
 
 if __name__ == "__main__":
-    split_chunks()
+    chunking()
     embedding()
-    make_index()
+    indexing()
