@@ -14,7 +14,7 @@ try:
     idx = parts.index('RAG')
     # 检查是否有足够的深度
     if len(parts) > idx + 2:
-        TASK_NAME = parts[idx + 3]
+        TASK_NAME = parts[idx + 2]
     else:
         TASK_NAME = "unknown"
 except ValueError:
@@ -62,46 +62,54 @@ def split_chunks():
         all_chunks.extend(chunks)
     return {'all_chunks':all_chunks}
 
-split_chunks()
-print('到此正确结束')
-exit()
-# %%
-if not loader.has_embeddings():
-    all_chunks = loader.chunks 
-    # TODO 可以写成使用transformers的复杂做法，需要做池化提取句向量，以及批量编码
-    cache_model_dir = Path("./cache/models")
-    if cache_model_dir.exists():
-        embed_model = SentenceTransformer(str(cache_model_dir),local_files_only=True)
+
+
+@cache_check(
+        results=[
+            ('embeddings','npy')
+        ],
+        sources=[
+            ('all_chunks','pkl')
+        ]
+)
+def embedding(**kwargs):
+    all_chunks = kwargs['all_chunks']
+    MODEL_NAME = 'Qwen/Qwen3-Embedding-0.6B'
+    model_cache_dir =root_dir/Path(f"./cache/models/{MODEL_NAME}")
+    if (model_cache_dir/'sentence_transformers.json').exists():
+        embed_model = SentenceTransformer(str(model_cache_dir),local_files_only=True)
     else:
-        embed_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
-        embed_model.save(str(cache_model_dir))
-    embed_model.save('./cache/models')
+        embed_model = SentenceTransformer(f"{MODEL_NAME}")
+        embed_model.save_pretrained(str(model_cache_dir))
+    
     embeddings = embed_model.encode(all_chunks, batch_size=64, convert_to_tensor=False)
     embeddings = embeddings.astype('float32')
-    loader.embeddings = embeddings
-    np.save(loader.embeddings_path,embeddings)
+    return {
+        'embeddings':embeddings
+    }
 
 
-# %%
 import faiss
 import numpy as np
 # 需求：embedding (float32类型数组)
-if not loader.has_index():
-    embeddings = loader.embeddings
+
+@cache_check(
+        results=[
+            ('index','faiss')
+        ],
+        sources=[
+            ('embeddings','npy')
+        ]
+)
+def make_index(**kwargs):
+    embeddings = kwargs['embeddings']
     dimension = embeddings.shape[1]
-    # --- 方案 A: 暴力检索 (高精度，小数据量首选) ---
-    index = faiss.IndexFlatL2(dimension)  # L2 欧氏距离
-    print(f"索引是否需要训练: {index.is_trained}") # Flat索引不需要训练
-
-    # --- 方案 B: 快速近似检索 (大数据量，需要训练) ---
-    # nlist = 100  # 聚类中心数量，通常设置为 sqrt(向量数量)
-    # quantizer = faiss.IndexFlatL2(dimension)
-    # index = faiss.IndexIVFFlat(quantizer, dimension, nlist)
-    # # 注意: IVF索引在使用前必须经过训练
-    # index.train(embeddings)
-
-    # 3. 将向量添加到索引中
+    index = faiss.IndexFlatL2(dimension) 
     index.add(embeddings)
-    faiss.write_index(index,str(loader.index_path))
-    print(f"索引中向量总数: {index.ntotal}") # 应等于 embeddings 数量
+    return {'index':index}
 
+
+if __name__ == "__main__":
+    split_chunks()
+    embedding()
+    make_index()
