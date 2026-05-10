@@ -30,27 +30,14 @@ class Dataset:
 
 class DatasetDownloader:
 
-
-
-
-
-
     def __init__(self,path:Path):
         self.path = DATASET_PATH
         self.path.mkdir(parents=True,exist_ok=True)
 
 class DatasetLoader:
-
-
-
     def __init__(self,path:Path):
         self.path = DATASET_PATH
-    
-    def __enter__(self):
-        pass
-
-    def __exit__(self):
-        pass
+    # TODO 
 
 
 
@@ -119,5 +106,12 @@ class DatasetManager:
             return [d for d in self.datasets if d.enabled]
         return self.datasets.copy()
 
-
+    def verify(self):
+        missing = []
+        for d in self.datasets:
+            print(f"{d.name}\t\t\t已下载" if d.full_local_path.exists() else f"{d.name}\t\t\t不存在")
+            if not d.full_local_path.exists():
+                missing.append(d)        
+        return missing
+    
 
