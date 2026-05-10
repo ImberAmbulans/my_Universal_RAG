@@ -108,11 +108,16 @@ class DatasetManager:
         if ds is None:
             raise KeyError(f"数据集{name}不存在")
         # TODO 更新逻辑存在一定问题
+        # TODO 未处理名字替换时，已有同名名字的……呃，可能有点麻烦
         for key,value in kwargs.items():
             if hasattr(ds,key):
                 setattr(ds,key,value)
         self._save()
-
+    
+    def list(self,enabled_only:bool=False):
+        if enabled_only:
+            return [d for d in self.datasets if d.enabled]
+        return self.datasets.copy()
 
 
 
