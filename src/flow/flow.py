@@ -4,6 +4,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from cache.cache_manager import CacheConfig,CacheManager
 
+
 root_dir = Path.cwd()
 root_dir = Path(r'D:\WorkDirectory\PythonProject\RAG\\')
 
@@ -109,6 +110,36 @@ def indexing(**kwargs):
     index = faiss.IndexFlatL2(dimension) 
     index.add(embeddings)
     return {'index':index}
+
+
+@cache_check(
+        results=[
+            ('questions','pkl')
+        ],
+        sources=[]
+)
+def question_embedding(**kwarg):
+    query_df = pd.read_parquet(r'D:\WorkDirectory\PythonProject\RAG\my_dataset\wikidata\data\rag-mini-wikipedia\data\test.parquet\part.0.parquet')
+    embed_model = kwarg['embed_model']
+    print(query_df.head(5))
+    # USE_DATA_COUNT = query_df.shape[0]
+    USE_DATA_COUNT = 5
+    query_df = query_df.head(USE_DATA_COUNT)
+
+    questions_list = []
+    answers_list = []
+    for _,row in query_df.iterrows():
+        question = row['question']
+        answer = row['answer']
+        questions_list.append(question)
+        answers_list.append(answer)
+
+    questions_embedding = embed_model.encode(questions_list, batch_size=64, convert_to_tensor=False)
+    questions_embedding = questions_embedding.astype('float32')
+    return {}
+
+
+
 
 
 if __name__ == "__main__":
