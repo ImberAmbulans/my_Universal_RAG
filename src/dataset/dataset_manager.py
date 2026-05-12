@@ -2,7 +2,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List,Optional
 import json
-
+import importlib
 # 获取本地数据集存储地址
 from config import DATASET_PATH
 
@@ -28,11 +28,17 @@ class Dataset:
         return DATASET_PATH / self.local_path
 
 class DatasetDownloader:
+    _PLATFORM_REGISTRY={
+        "huggingface": ("huggingface_hub", "snapshot_download",None),
+        "ModelScope": ("modelscope", "snapshot_download",None),
+        "Kaggle": ("kagglehub", "dataset_download",None),
+    }
+
 
     def __init__(self,dataset:Dataset):
         self.dataset = dataset
         self.path = self.dataset.full_local_path
-        self.permitplatform = ['huggingface','ModelScope','']
+        self.permitplatform = ['huggingface','ModelScope','Kaggle']
         
 
     def execute(self):
@@ -59,44 +65,52 @@ class DatasetDownloader:
             print('不支持该平台')
             print(f"当前支持的平台有{','.join(self.permitplatform)}")
             return None
-        if platform == "huggingface":
-            try:
-                # from huggingface_hub import hf_hub_download
-                from huggingface_hub import snapshot_download
-                """参数参考
-                snapshot_download(
-                    repo_id="username/dataset_name",
-                    repo_type="dataset",           # 仓库类型
-                    revision="main",               # 版本分支/commit
-                    local_dir="/path/to/save",     # 目标目录（⚠️ 注意语义）
-                    cache_dir="/path/to/cache",    # 缓存目录
-                    allow_patterns=["*.json"],     # 只下载匹配的文件
-                    ignore_patterns=["*.pt"],      # 忽略的文件
-                    token="hf_xxx",                # 认证token（私有数据集需要）
-                    resume_download=True,          # 断点续传
-                    local_dir_use_symlinks=False,  # 不使用软链接
-                )"""
-                return snapshot_download
-            except ImportError as e:
-                print(f"缺少huggingface_hub，使用pip install huggingface_hub 进行下载")
-        elif platform == "ModelScope":
-            try:
-                from modelscope import snapshot_download
-                return snapshot_download
-            except ImportError as e:
-                print(f"缺少modelscope库，请使用pip install modelscope进行安装")
-        elif platform == "Kaggle":
-            try:
-                from kagglehub import dataset_download
-                return dataset_download
-            except ImportError as e:
-                print(f"缺少kagglehub库，请使用pip install kagglehub进行安装")
-        else:
-            def fun(**kwargs):
-                print('意外情况')
-                return
-            return fun
+        module_name,function_name,adapter = self._PLATFORM_REGISTRY.get(platform)
+        try:
+            module = importlib.import_module(module_name)
+            raw_func = getattr(module,function_name)
+        except ImportError as e:
+            # TODO log
+            print(f'{module_name}导入失败 尝试使用pip install {module_name}')
+        if adapter is None:
+            adapter = self._make_default_adapter(raw_func)
+        def warpper(**kwargs):
+            return adapter(**kwargs)
+        return warpper
 
+
+
+
+    def _make_default_adapter(self,raw_func):
+        def adapter(repo_id:str,local_dir:str,**extra):
+            return raw_func(
+                repo_id = repo_id,
+                local_dir = local_dir,
+                **extra
+                )
+        return adapter
+    
+    # 为不同平台编写特定适配器
+    @staticmethod
+    def _adapt_modelscope(raw_func):
+        def adapter(repo_id, local_dir, **extra):
+        # modelscope 使用 cache_dir，且没有 local_dir_use_symlinks
+            return raw_func(model_id=repo_id, cache_dir=str(local_dir))
+        return adapter
+
+    @staticmethod
+    def _adapt_kaggle(raw_func):
+        def adapter(repo_id, local_dir, **extra):
+                # kagglehub.dataset_download 参数为路径字符串，返回下载路径
+                # 需要额外处理（具体 API 可能变化，此处示例）
+            downloaded_path = raw_func(repo_id)
+                # 可能需要软链接或移动文件到 local_dir，这里简化
+            return downloaded_path
+        return adapter
+
+# 更新注册表，为 ModelScope 和 Kaggle 指定适配器
+DatasetDownloader._PLATFORM_REGISTRY["ModelScope"] = ("modelscope", "snapshot_download", DatasetDownloader._adapt_modelscope)
+DatasetDownloader._PLATFORM_REGISTRY["Kaggle"] = ("kagglehub", "dataset_download", DatasetDownloader._adapt_kaggle)    
 
 class DatasetLoader:
     def __init__(self,path:Path):
