@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 
 
 # 获得项目根目录
-PROJECT_ROOT = Path(__file__).resolve()
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # 检查一遍路径
 print(PROJECT_ROOT)
-exit()
+# exit()
 
 # 指定.env文件
 dotenv_path = PROJECT_ROOT/".env"

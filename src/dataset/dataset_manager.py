@@ -1,3 +1,5 @@
+# 当前位置：RAG/src/dataset/dataset_manager.py
+# 使用文件目录： config: RAG/src/config
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List,Optional
@@ -45,18 +47,12 @@ class DatasetDownloader:
 
         self.path.mkdir(parents=True,exist_ok=True)
         download_func = self._get_download_function()
-        assert download_func is not None
         # TODO 对download_func为None时进行错误处理
         try:
-            download_func(
-                repo_id = self.dataset.name,
-                local_dir = self.path,
-                local_dir_use_symlinks=False,
-            )
-            pass
+            download_func()
         except Exception as e:
-            pass
-        pass
+            print(f'发生错误{e}')
+
 
     def _get_download_function(self):
         # TODO 加入模糊/近似匹配
@@ -65,17 +61,27 @@ class DatasetDownloader:
             print('不支持该平台')
             print(f"当前支持的平台有{','.join(self.permitplatform)}")
             return None
-        module_name,function_name,adapter = self._PLATFORM_REGISTRY.get(platform)
+        module_name,function_name,adapter_factory = self._PLATFORM_REGISTRY.get(platform)
         try:
             module = importlib.import_module(module_name)
             raw_func = getattr(module,function_name)
         except ImportError as e:
             # TODO log
             print(f'{module_name}导入失败 尝试使用pip install {module_name}')
-        if adapter is None:
+            return
+        if adapter_factory is not None:
+            adapter = adapter_factory(raw_func)
+        else:
             adapter = self._make_default_adapter(raw_func)
-        def warpper(**kwargs):
-            return adapter(**kwargs)
+        def warpper():
+            return adapter(
+                repo_id=self.dataset.remote_path,
+                local_dir=self.dataset.full_local_path,
+                local_dir_use_symlinks = False,
+                allow_patterns = self.dataset.allow_patterns,
+                ignore_patterns = self.dataset.ignore_patterns,
+                force_download = False
+                )
         return warpper
 
 
@@ -103,8 +109,9 @@ class DatasetDownloader:
         def adapter(repo_id, local_dir, **extra):
                 # kagglehub.dataset_download 参数为路径字符串，返回下载路径
                 # 需要额外处理（具体 API 可能变化，此处示例）
-            downloaded_path = raw_func(repo_id)
-                # 可能需要软链接或移动文件到 local_dir，这里简化
+            force = extra.get('force_download',False)
+            downloaded_path = raw_func(path = repo_id,output_dir = local_dir,force =force)
+
             return downloaded_path
         return adapter
 
@@ -112,10 +119,7 @@ class DatasetDownloader:
 DatasetDownloader._PLATFORM_REGISTRY["ModelScope"] = ("modelscope", "snapshot_download", DatasetDownloader._adapt_modelscope)
 DatasetDownloader._PLATFORM_REGISTRY["Kaggle"] = ("kagglehub", "dataset_download", DatasetDownloader._adapt_kaggle)    
 
-class DatasetLoader:
-    def __init__(self,path:Path):
-        self.path = DATASET_PATH
-    # TODO 
+
 
 
 
@@ -191,7 +195,19 @@ class DatasetManager:
         for d in self.datasets:
             print(f"{d.name}\t\t\t已下载" if d.full_local_path.exists() else f"{d.name}\t\t\t不存在")
             if not d.full_local_path.exists():
-                missing.append(d)        
+                missing.append(d)
+            if missing:
+                command = input(f'install now?[y]/n')
+                if command == "" or command == "y":
+                    for ds in missing:
+                        # TODO 异步线程化下载？
+                        dsDownloader =  DatasetDownloader(ds)
+                        dsDownloader.execute()
+
         return missing
     
 
+class DatasetLoader:
+    def __init__(self,path:Path):
+        self.path = DATASET_PATH
+    # TODO 
