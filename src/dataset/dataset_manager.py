@@ -31,7 +31,7 @@ class Dataset:
 
     @property
     def full_local_path(self) -> Path:
-        return self.base_path / self.local_path
+        return Path(self.base_path) / self.local_path
 
 class DatasetDownloader:
     _PLATFORM_REGISTRY={

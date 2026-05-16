@@ -10,7 +10,6 @@ from config import ROOT_DIR,CACHE_PATH,DATASET_PATH
 dsmgr = DatasetManager(base_path=DATASET_PATH)
 print(dsmgr.list())
 
-input()
 ds1 = Dataset(
     name="Congliu/Chinese-DeepSeek-R1-Distill-data-110k",
     displayname="HF_Distill_110K",
