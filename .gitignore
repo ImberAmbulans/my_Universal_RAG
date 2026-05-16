@@ -207,8 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # 自定义
-my_dataset*
-cache
-cache/*
+/my_dataset/
+/cache/
+/utils/
 flow.dio
-src/flow/warp_loader.py

@@ -95,6 +95,7 @@ class DatasetDownloader:
         def adapter(repo_id:str,local_dir:str,**extra):
             return raw_func(
                 repo_id = repo_id,
+                repo_type = "dataset",
                 local_dir = local_dir,
                 **extra
                 )

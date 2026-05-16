@@ -26,8 +26,9 @@ datasets = [
 ]
 
 dsmgr.add(ds1,True)
+dsmgr.verify()
 
-print(dsmgr.list())
+# print(dsmgr.list())
 
 # dataset = load_dataset("imdb",cache_dir=CACHE_DIR)
 # datasets.append(dataset)
@@ -36,3 +37,4 @@ print(dsmgr.list())
 # dataset = load_dataset("Youtu-Graph/AnonyRAG", "AnnoyRAG-CHS-Texts",cache_dir=CACHE_DIR)
 # datasets.append(dataset)
 
+# 工作流部分
