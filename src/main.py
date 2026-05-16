@@ -1,16 +1,34 @@
-# 自动化流程、评估、升级
+# RAG/src/main.py
 
-#%%
 
-from datasets import load_dataset
+
 from pathlib import Path
+from dataset import Dataset,DatasetManager
 
 
-ROOT_DIR = Path(r'D:\WorkDirectory\PythonProject\RAG\\')
-CACHE_DIR = ROOT_DIR/"my_dataset"
-datasets = []
-dataset = load_dataset("imdb",cache_dir=CACHE_DIR)
-datasets.append(dataset)
+
+dsmgr = DatasetManager()
+print(dsmgr.list())
+
+ds1 = Dataset(
+    name="Congliu/Chinese-DeepSeek-R1-Distill-data-110k",
+    displayname="HF_Distill_110K",
+    platform="huggingface",
+    remote_path="Congliu/Chinese-DeepSeek-R1-Distill-data-110k",
+    local_path="Congliu/Chinese-DeepSeek-R1-Distill-data-110k",
+    enabled=True
+)
+
+
+datasets = [
+    ds1
+]
+
+dsmgr.add(ds1,True)
+
+print(dsmgr.list())
+# dataset = load_dataset("imdb",cache_dir=CACHE_DIR)
+# datasets.append(dataset)
 # dataset = load_dataset("Youtu-Graph/AnonyRAG", "AnnoyRAG-CHS-QA",cache_dir=CACHE_DIR)
 # datasets.append(dataset)
 # dataset = load_dataset("Youtu-Graph/AnonyRAG", "AnnoyRAG-CHS-Texts",cache_dir=CACHE_DIR)

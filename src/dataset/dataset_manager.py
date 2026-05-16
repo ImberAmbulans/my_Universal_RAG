@@ -1,24 +1,28 @@
 # 当前位置：RAG/src/dataset/dataset_manager.py
-# 使用文件目录： config: RAG/src/config
+# 使用文件目录： config: RAG/src/config.py
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass,field
 from typing import List,Optional
 import json
 import importlib
 # 获取本地数据集存储地址
-from config import DATASET_PATH
+# from ..config import DATASET_PATH
 
 
 @dataclass
 class Dataset:
-    name:str
-    displayname:str
-    platform:str
-    remote_path:str
-    local_path:str
-    enabled:bool = True
-    auth_token: Optional[str] = None
-    source_path:Optional[str] = None # 子路径下载  这个不太懂
+    # 存储属性
+    name:str   # 唯一标识
+    displayname:str  # 展示名
+    platform:str   # 平台名，控制下载方式
+    remote_path:str  # 远程仓库地址
+    base_path:str # 本地数据集根目录
+    local_path:str   # 相对目录
+    enabled:bool = True  # 是否启用
+    
+    # 下载属性
+    auth_token: Optional[str] = field(repr = False,default = None)  # TODO 这个不太清楚，和kaggle有关，同时要设置什么时候不打印来着
+    source_path:Optional[str] = None # 子路径下载 重点关注 不太常使用
     revision: Optional[str] = None # 版本号
     allow_patterns:Optional[List[str]] = None # 需要下载的文件过滤
     ignore_patterns:Optional[List[str]] = None # 不需要下载的文件过滤
@@ -26,8 +30,8 @@ class Dataset:
 
 
     @property
-    def full_local_path(self) -> Path:
-        return DATASET_PATH / self.local_path
+    def full_local_path(self,base_path) -> Path:
+        return base_path / self.local_path
 
 class DatasetDownloader:
     _PLATFORM_REGISTRY={
@@ -40,7 +44,7 @@ class DatasetDownloader:
     def __init__(self,dataset:Dataset):
         self.dataset = dataset
         self.path = self.dataset.full_local_path
-        self.permitplatform = ['huggingface','ModelScope','Kaggle']
+        self.permitplatform = list(self._PLATFORM_REGISTRY.keys())
         
 
     def execute(self):
@@ -68,12 +72,12 @@ class DatasetDownloader:
         except ImportError as e:
             # TODO log
             print(f'{module_name}导入失败 尝试使用pip install {module_name}')
-            return
+            return None
         if adapter_factory is not None:
             adapter = adapter_factory(raw_func)
         else:
             adapter = self._make_default_adapter(raw_func)
-        def warpper():
+        def wrapper():
             return adapter(
                 repo_id=self.dataset.remote_path,
                 local_dir=self.dataset.full_local_path,
@@ -82,7 +86,7 @@ class DatasetDownloader:
                 ignore_patterns = self.dataset.ignore_patterns,
                 force_download = False
                 )
-        return warpper
+        return wrapper
 
 
 
@@ -123,20 +127,14 @@ DatasetDownloader._PLATFORM_REGISTRY["Kaggle"] = ("kagglehub", "dataset_download
 
 
 
-# 单例类
 class DatasetManager:
-    _instance = None
-    _storage_file = DATASET_PATH / "datasets.json"
-    datasets:List[Dataset]
-    @staticmethod
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.datasets = []
-            cls._instance._load()
-        return cls._instance
-
-
+    def __init__(self,base_path:Path,storage_filename:str="datasets.json",set:str=''):
+        self.base_path = Path(base_path)
+        # TODO 添加带名字的自定义集合功能 添加本地的链接映射功能
+        # TODO 文件锁功能
+        self._storage_file = self.base_path/storage_filename
+        self.datasets:List[Dataset]=[]
+        self._load()
     # 持久化
     def _load(self):
         """从 JSON 文件加载数据集列表"""
@@ -196,18 +194,18 @@ class DatasetManager:
             print(f"{d.name}\t\t\t已下载" if d.full_local_path.exists() else f"{d.name}\t\t\t不存在")
             if not d.full_local_path.exists():
                 missing.append(d)
-            if missing:
-                command = input(f'install now?[y]/n')
-                if command == "" or command == "y":
-                    for ds in missing:
-                        # TODO 异步线程化下载？
-                        dsDownloader =  DatasetDownloader(ds)
-                        dsDownloader.execute()
+        if missing:
+            command = input(f'install now?[y]/n')
+            if command == "" or command == "y":
+                for ds in missing:
+                    # TODO 异步线程化下载？
+                    dsDownloader =  DatasetDownloader(ds)
+                    dsDownloader.execute()
 
         return missing
     
 
 class DatasetLoader:
     def __init__(self,path:Path):
-        self.path = DATASET_PATH
+        self.path = path
     # TODO 
